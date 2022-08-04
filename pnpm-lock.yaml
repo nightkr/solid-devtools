@@ -77,6 +77,7 @@ importers:
   packages/extension:
     specifiers:
       '@crxjs/vite-plugin': ^1.0.13
+      '@solid-devtools/debugger': workspace:^0.3.0
       '@solid-devtools/ui': 0.3.3
       '@solid-primitives/context': ^0.1.0
       '@solid-primitives/immutable': ^0.1.0
@@ -90,6 +91,7 @@ importers:
       vite: ^3.0.4
       vite-plugin-solid: ^2.3.0
     dependencies:
+      '@solid-devtools/debugger': link:../debugger
       '@solid-devtools/ui': link:../ui
       '@solid-primitives/context': 0.1.0_solid-js@1.4.8
       '@solid-primitives/immutable': 0.1.0_solid-js@1.4.8
