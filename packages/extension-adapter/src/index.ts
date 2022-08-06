@@ -1,17 +1,20 @@
-import { createEffect, createSignal, onCleanup } from "solid-js"
+import { createEffect, createSignal } from "solid-js"
 import { registerDebuggerPlugin, PluginFactory, getSafeValue } from "@solid-devtools/debugger"
 import {
   BatchedUpdate,
-  MESSAGE,
-  onWindowMessage,
-  postWindowMessage,
-  startListeningWindowMessages,
+  OnMessage,
+  SendMessage,
+  SOLID_DEVTOOLS_NAMESPACE,
   UpdateType,
-} from "@shared/messanger"
+} from "@shared/bridge"
 import type { SerialisedTreeRoot } from "@shared/graph"
 import { getArrayDiffById } from "@shared/diff"
+import * as Bridge from "webext-bridge/window"
 
-startListeningWindowMessages()
+Bridge.setNamespace(SOLID_DEVTOOLS_NAMESPACE)
+
+const onMessage = Bridge.onMessage as OnMessage
+const sendMessage = Bridge.sendMessage as SendMessage
 
 const extensionAdapterFactory: PluginFactory = ({
   forceTriggerUpdate,
@@ -20,35 +23,46 @@ const extensionAdapterFactory: PluginFactory = ({
 }) => {
   const [enabled, setEnabled] = createSignal(false)
 
-  postWindowMessage(MESSAGE.SolidOnPage)
+  try {
+    sendMessage("SolidOnPage", true, "devtools")
+  } catch (e) {
+    console.log("Solid on the page, but no one listens...")
+  }
 
   // update the graph only if the devtools panel is in view
-  onCleanup(onWindowMessage(MESSAGE.PanelVisibility, setEnabled))
-  onCleanup(onWindowMessage(MESSAGE.ForceUpdate, forceTriggerUpdate))
+  // TODO: figure out onCleanup
+  // onCleanup(onWindowMessage(MESSAGE.PanelVisibility, setEnabled))
+  // onCleanup(onWindowMessage(MESSAGE.ForceUpdate, forceTriggerUpdate))
+  onMessage("PanelVisibility", e => setEnabled(e.data))
+  onMessage("ForceUpdate", forceTriggerUpdate)
 
-  // diff the roots array, and send only the changed roots (edited, deleted, added)
-  createEffect((prev: SerialisedTreeRoot[]) => {
-    const _roots = serialisedRoots()
-    const diff = getArrayDiffById(prev, _roots)
-    postWindowMessage(MESSAGE.GraphUpdate, diff)
-    return _roots
-  }, [])
-
-  makeBatchUpdateListener(updates => {
-    // serialize the updates and send them to the devtools panel
-    const safeUpdates = updates.map(({ type, payload }) => ({
-      type,
-      payload:
-        type === UpdateType.Computation
-          ? payload
-          : {
-              id: payload.id,
-              value: getSafeValue(payload.value),
-              oldValue: getSafeValue(payload.oldValue),
-            },
-    })) as BatchedUpdate[]
-    postWindowMessage(MESSAGE.BatchedUpdate, safeUpdates)
+  onMessage("DevtoolsPanelReady", () => {
+    console.log("devtools panel ready")
   })
+
+  // // diff the roots array, and send only the changed roots (edited, deleted, added)
+  // createEffect((prev: SerialisedTreeRoot[]) => {
+  //   const _roots = serialisedRoots()
+  //   const diff = getArrayDiffById(prev, _roots)
+  //   sendMessage("GraphUpdate", diff, "devtools")
+  //   return _roots
+  // }, [])
+
+  // makeBatchUpdateListener(updates => {
+  //   // serialize the updates and send them to the devtools panel
+  //   const safeUpdates = updates.map(({ type, payload }) => ({
+  //     type,
+  //     payload:
+  //       type === UpdateType.Computation
+  //         ? payload
+  //         : {
+  //             id: payload.id,
+  //             value: getSafeValue(payload.value),
+  //             oldValue: getSafeValue(payload.oldValue),
+  //           },
+  //   })) as BatchedUpdate[]
+  //   sendMessage("BatchedUpdate", safeUpdates, "devtools")
+  // })
 
   return { enabled }
 }

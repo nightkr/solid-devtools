@@ -1,6 +1,6 @@
 import { batch, createRoot, createSelector, createSignal, getOwner, onCleanup } from "solid-js"
 import { createStore, produce } from "solid-js/store"
-import { UpdateType, MESSAGE } from "@shared/messanger"
+import { OnMessage, SendMessage, UpdateType } from "@shared/bridge"
 import { mutateFilter, pushToArrayProp } from "@shared/utils"
 import {
   MappedOwner,
@@ -10,7 +10,10 @@ import {
   GraphRoot,
   SerialisedTreeRoot,
 } from "@shared/graph"
-import { onRuntimeMessage } from "./messanger"
+import * as Bridge from "webext-bridge/devtools"
+
+const onMessage = Bridge.onMessage as OnMessage
+const sendMessage = Bridge.sendMessage as SendMessage
 
 const dispose = (o: { dispose?: VoidFunction }) => o.dispose?.()
 const disposeAll = (list: { dispose?: VoidFunction }[]) => list.forEach(dispose)
@@ -286,7 +289,7 @@ const exports = createRoot(() => {
     else addNewRoot(proxy, { id, tree })
   }
 
-  onRuntimeMessage(MESSAGE.GraphUpdate, ({ added, removed, updated }) => {
+  onMessage("GraphUpdate", ({ data: { added, removed, updated } }) => {
     batch(() => {
       // reset all of the computationRerun state
       for (const id of ownersUpdated) ownersMap[id].setUpdate(false)
@@ -304,14 +307,14 @@ const exports = createRoot(() => {
     afterGraphUpdate()
   })
 
-  onRuntimeMessage(MESSAGE.ResetPanel, () => {
+  onMessage("ResetPanel", () => {
     setGraphs([])
     disposeAll(Object.values(ownersMap))
     disposeAll(Object.values(signalsMap))
     afterGraphUpdate()
   })
 
-  onRuntimeMessage(MESSAGE.BatchedUpdate, updates => {
+  onMessage("BatchedUpdate", ({ data: updates }) => {
     console.groupCollapsed("Batched Updates")
     batch(() => {
       for (const update of updates) {
@@ -335,6 +338,8 @@ const exports = createRoot(() => {
     })
     console.groupEnd()
   })
+
+  sendMessage("DevtoolsPanelReady", true, "window")
 
   return {
     graphs,

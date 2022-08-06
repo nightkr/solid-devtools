@@ -1,21 +1,21 @@
-import { createRuntimeMessanger } from "../shared/utils"
-import { MESSAGE, once } from "@shared/messanger"
+import * as Bridge from "webext-bridge/devtools"
+import { OnMessage, SendMessage } from "@shared/bridge"
+import { log } from "@shared/utils"
 
-console.log("devtools script working")
+const onMessage = Bridge.onMessage as OnMessage
+const sendMessage = Bridge.sendMessage as SendMessage
 
-const { onRuntimeMessage, postRuntimeMessage } = createRuntimeMessanger()
-
-postRuntimeMessage(MESSAGE.DevtoolsScriptConnected)
+// postRuntimeMessage(MESSAGE.DevtoolsScriptConnected)
 
 let panel: chrome.devtools.panels.ExtensionPanel | undefined
 
-once(onRuntimeMessage, MESSAGE.SolidOnPage, async () => {
-  if (panel) return console.log("Panel already exists")
+onMessage("SolidOnPage", async () => {
+  if (panel) return log("Panel already exists")
 
-  console.log("Solid on page – creating panel")
+  log("Solid on page – creating panel")
   try {
     panel = await createPanel()
-    console.log("panel", panel)
+    log("Panel Created")
     panel.onShown.addListener(onPanelShown)
     panel.onHidden.addListener(onPanelHidden)
   } catch (error) {
@@ -37,11 +37,11 @@ const createPanel = () =>
   })
 
 function onPanelShown() {
-  postRuntimeMessage(MESSAGE.PanelVisibility, true)
+  sendMessage("PanelVisibility", true, "window")
 }
 
 function onPanelHidden() {
-  postRuntimeMessage(MESSAGE.PanelVisibility, false)
+  sendMessage("PanelVisibility", false, "window")
 }
 
 export {}
